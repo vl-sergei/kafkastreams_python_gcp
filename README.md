@@ -1,13 +1,12 @@
-# Kafka connect in Kubernetes
+# M12_KafkaStreams_JVM_GCP
+1) Create your own project on GCP (currently Google offers trial accounts up to 300$).
+2) Install Google Cloud CLI (gcloud & gsutil), Kubernetes controls (kubectl) and spark on your host machine.
+3) Use `gcloud auth login && gcloud auth application-default login && gcloud config set project [PROJECT]` to initialize access to your project.
+4) Run `terraform init && terraform apply`. Provide your project ID and already **existing** bucket for Terraform state. Terraform script will create a K8S cluster, container registry, GCS bucket for the registry and a service account with RW permission for the Container Registry.
+5) Run `gcloud container clusters get-credentials [CLUSTER_NAME] --zone [CLUSTER_ZONE] --project [PROJECT]` to configure kubectl to work with your k8s cluster.
+6) After the task is done don't forget to `terraform destroy` your GCP resources.
 
-## Deploy Azure resources using [Terraform](https://www.terraform.io/) (version >= 0.15 should be installed on your system)
-```
-terraform init
-terraform plan -out terraform.plan
-terraform apply terraform.plan
-....
-terraform destroy
-```
+# Kafka connect in Kubernetes
 
 ## Install Confluent Hub Client
 
@@ -15,7 +14,7 @@ You can find the installation manual [here](https://docs.confluent.io/home/conne
 
 ## Create a custom docker image
 
-For running the azure connector, you can create your own docker image. Create your azure connector image and build it.
+For running the GCS connector, you can create your own docker image. Create your GCS connector image and build it.
 
 ## Launch Confluent for Kubernetes
 
@@ -80,27 +79,49 @@ For running the azure connector, you can create your own docker image. Create yo
 
 ## Create a kafka topic
 
-- The topic should have at least 3 partitions because the azure blob storage has 3 partitions. Name the new topic: "expedia".
+- Name the new topic: "expedia".
 
-## Prepare the azure connector configuration
+## Prepare the GCS connector configuration
+
+- Create a JSON key for the bucket's service account to give GCS connector access.
 
 ## Upload the connector file through the API
 
 ## Implement you KStream application
-- Kafka Stream application made via [faust library](https://github.com/robinhood/faust)
 
-- Build [KStream Docker Image](Dockerfile) - insert valid Azure image registry here
+- Add necessary code and configuration to [KStream Application Class](src/main/java/com/epam/bd201/KStreamsApplication.java)
+
+- Build KStream application jar
   ```cmd
-  $ docker build -t image-registry/your-project-id/kstream-app:1.0
+  $ mvn package
+  ```
+
+- Build [KStream Docker Image](Dockerfile) - insert valid Container Registry here
+  ```cmd
+  $ docker build -t gcr.io/[your-project-id]/kstream-app:1.0
+  ```
+  
+- Configure your docker for Google Container Registry
+  ```cmd
+  $ gcloud auth configure-docker 
   ```
 
 - Push KStream image to Container Registry
   ```cmd
-  $ docker push image-registry/your-project-id/kstream-app:1.0
+  $ docker push gcr.io/[your-project-id]/kstream-app:1.0
+  ```
+
+- Generate a JSON key for created service account and add the key as secret to the K8S cluster:
+  ```
+  $ kubectl create secret docker-registry [key-name] \
+    --docker-server=gcr.io \
+    --docker-username=_json_key \
+    --docker-password="$(cat ./[service-account-key-file.json])" \
+    --docker-email=any@valid.email
   ```
 
 - Run you KStream app container in the K8s kluster alongside with Kafka Connect. Don't forger to update [Kubernetes deployment](kstream-app.yaml)
-  with valid registry for your image
+  with valid registry for your image as well as created secret
   ```cmd
   $ kubectl create -f kstream-app.yaml
   ```
