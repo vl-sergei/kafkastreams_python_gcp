@@ -85,6 +85,12 @@ For running the GCS connector, you can create your own docker image. Create your
 
 - Create a JSON key for the bucket's service account to give GCS connector access.
 
+
+## Create your own connector's image
+
+- Create your own connector's docker image using provided Dockerfile and use it in confluent-platform.yaml
+
+
 ## Upload the connector file through the API
 
 ## Implement you KStream application
