@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kstream-app
+  namespace: confluent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kstream-app
+  template:
+    metadata:
+      labels:
+        app: kstream-app
+    spec:
+      containers:
+        - name: kstream-app
+          image: #You application image
+      imagePullSecrets:
+        - name: #Your service account JSON key secret
