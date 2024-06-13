@@ -34,12 +34,11 @@ metadata:
 spec:
   replicas: 1
   image:
-    application: #Your GCS connector
+    application: servl/epamhw:m11
     init: confluentinc/cp-init-container-operator:6.1.0.0
   dependencies:
     kafka:
       bootstrapEndpoint: kafka:9071
-
 ---
 apiVersion: platform.confluent.io/v1beta1
 kind: KsqlDB

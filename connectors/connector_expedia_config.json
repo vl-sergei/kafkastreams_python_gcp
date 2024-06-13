@@ -1,0 +1,11 @@
+{
+  "name": "expedia",
+  "config": {
+    "connector.class": "io.confluent.connect.gcs.GcsSourceConnector",
+    "tasks.max": "1",
+    "format.class": "io.confluent.connect.gcs.format.avro.AvroFormat",
+    "gcs.bucket.name": "storage-bucket-clean-polecat",
+    "gcs.credentials.path": "",
+    "topics": "expedia"
+  }
+}

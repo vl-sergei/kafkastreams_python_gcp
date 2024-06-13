@@ -1,20 +1,21 @@
-# M12_KafkaStreams_JVM_GCP
-1) Create your own project on GCP (currently Google offers trial accounts up to 300$).
-2) Install Google Cloud CLI (gcloud & gsutil), Kubernetes controls (kubectl) and spark on your host machine.
-3) Use `gcloud auth login && gcloud auth application-default login && gcloud config set project [PROJECT]` to initialize access to your project.
-4) Run `terraform init && terraform apply`. Provide your project ID and already **existing** bucket for Terraform state. Terraform script will create a K8S cluster, container registry, GCS bucket for the registry and a service account with RW permission for the Container Registry.
-5) Run `gcloud container clusters get-credentials [CLUSTER_NAME] --zone [CLUSTER_ZONE] --project [PROJECT]` to configure kubectl to work with your k8s cluster.
-6) After the task is done don't forget to `terraform destroy` your GCP resources.
 
-# Kafka connect in Kubernetes
+## Kafka connect in Kubernetes
 
-## Install Confluent Hub Client
+### Create a custom docker image
 
-You can find the installation manual [here](https://docs.confluent.io/home/connect/confluent-hub/client.html)
+For running the GCS connector, the Docker image was created and builded. Reference was included into CP config yaml file.
 
-## Create a custom docker image
+![alt text](pics/docker_connect.PNG)
 
-For running the GCS connector, you can create your own docker image. Create your GCS connector image and build it.
+### Data was uploaded to GCP Cloud Storage into the bucket created in prior via Terraform
+
+![alt text](pics/bucket.PNG)
+
+### GCP Kuberentes engine cluster was created via Terraform and connected to kubectl service
+
+![alt text](pics/k8s.PNG)
+
+![alt text](pics/cluster_conn.PNG)
 
 ## Launch Confluent for Kubernetes
 
@@ -22,13 +23,13 @@ For running the GCS connector, you can create your own docker image. Create your
 
 - Create the namespace to use:
 
-  ```cmd
+  ```bash
   kubectl create namespace confluent
   ```
 
 - Set this namespace to default for your Kubernetes context:
 
-  ```cmd
+  ```bash
   kubectl config set-context --current --namespace confluent
   ```
 
@@ -36,96 +37,103 @@ For running the GCS connector, you can create your own docker image. Create your
 
 - Add the Confluent for Kubernetes Helm repository:
 
-  ```cmd
+  ```bash
   helm repo add confluentinc https://packages.confluent.io/helm
   helm repo update
   ```
 
 - Install Confluent for Kubernetes:
 
-  ```cmd
+  ```bash
   helm upgrade --install confluent-operator confluentinc/confluent-for-kubernetes
   ```
-
-## Create your own connector's image
-
-- Create your own connector's docker image using provided Dockerfile and use it in confluent-platform.yaml
 
 ### Install Confluent Platform
 
 - Install all Confluent Platform components:
 
-  ```cmd
+  ```bash
   kubectl apply -f ./confluent-platform.yaml
   ```
 
 - Install a sample producer app and topic:
 
-  ```cmd
+  ```bash
   kubectl apply -f ./producer-app-data.yaml
-  ```
-
-- Check that everything is deployed:
-
-  ```cmd
-  kubectl get pods -o wide 
   ```
 
 ### View Control Center
 
 - Set up port forwarding to Control Center web UI from local machine:
 
-  ```cmd
+  ```bash
   kubectl port-forward controlcenter-0 9021:9021
   ```
 
 - Browse to Control Center: [http://localhost:9021](http://localhost:9021)
 
-## Create a kafka topic
+![alt text](pics/forwarding.PNG)
 
-- Name the new topic: "expedia".
+## Create a kafka topics
 
-## Prepare the GCS connector configuration
+- Name the new topics: "expedia" and "expedia_ext"
 
-- Create a JSON key for the bucket's service account to give GCS connector access.
+![alt text](pics/both_topics.PNG)
 
-## Upload the connector file through the API
+## Preparing and uploading the GCS connector configuration file through the API
 
-## Implement you KStream application
+- Config file was uploaded and connector was estableshed:
 
-- Add necessary code and configuration to [KStream Application Class](src/main/java/com/epam/bd201/KStreamsApplication.java)
+![alt text](pics/connector.PNG)
 
-- Build KStream application jar
-  ```cmd
-  $ mvn package
+- As a result the data from GCP Cloud Storage was uploaded through "expedia" topic and proceeded:
+
+![alt text](pics/overview.PNG)
+![alt text](pics/topic_msgs.PNG)
+
+## Creating and deploying image with Kafka Streams job
+
+### Creating of app docker image
+
+- To execute Python app, the Docker image was created and builded:
+
+![alt text](pics/docker_app.PNG)
+
+### Deploing of app docker image
+
+```bash
+kubectl create -f kstream-app.yaml 
+```
+
+ - Check that everything is deployed:
+
+  ```bash
+  kubectl get pods -o wide 
   ```
 
-- Build [KStream Docker Image](Dockerfile) - insert valid Container Registry here
-  ```cmd
-  $ docker build -t gcr.io/[your-project-id]/kstream-app:1.0
-  ```
-  
-- Configure your docker for Google Container Registry
-  ```cmd
-  $ gcloud auth configure-docker 
-  ```
+![alt text](pics/get_pods.PNG)
+![alt text](pics/workloads.PNG)
 
-- Push KStream image to Container Registry
-  ```cmd
-  $ docker push gcr.io/[your-project-id]/kstream-app:1.0
-  ```
+## Executing the Kafka stream job, procceding and enriching the data
 
-- Generate a JSON key for created service account and add the key as secret to the K8S cluster:
-  ```
-  $ kubectl create secret docker-registry [key-name] \
-    --docker-server=gcr.io \
-    --docker-username=_json_key \
-    --docker-password="$(cat ./[service-account-key-file.json])" \
-    --docker-email=any@valid.email
-  ```
+After deploing the app starts to consume data from "expedia" topic, proceede it and write into "expedia_ext" topic:
 
-- Run you KStream app container in the K8s kluster alongside with Kafka Connect. Don't forger to update [Kubernetes deployment](kstream-app.yaml)
-  with valid registry for your image as well as created secret
-  ```cmd
-  $ kubectl create -f kstream-app.yaml
-  ```
+![alt text](pics/eapedia_ext.PNG)
+
+### Creating Kafka stream, table and visualization the enriched data
+
+Creating a stream:
+
+![alt text](pics/create_stream.PNG)
+
+Creating a table:
+
+![alt text](pics/create_table.PNG)
+
+Data visualization was created from ksql cli:
+
+```bash
+kubectl exec -it ksqldb-0  -- ksql 
+```
+
+![alt text](pics/final_tab.PNG)
